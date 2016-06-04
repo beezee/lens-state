@@ -19,23 +19,32 @@ object LogState {
 
   val log = lens[Log]
 
-  def update[A](l: Lens[Log, A])(m: A => A) =
-    State.modify(l.modify(_: Log)(m))
-  def write[A](l: Lens[Log, A])(m: A) =
-    State.modify(l.set(_: Log)(m))
+  implicit class LensStateOps[S, A](l: Lens[S, A]) {
+    def update(m: A => A) =
+      State.modify(l.modify(_: S)(m))
+    def set(m: A) =
+      State.modify(l.set(_: S)(m))
+    def value = State.gets(l.get _)
+  }
 }
 
 object Example extends App {
   import LogState._
 
-  val app = for {
+  val app1 = for {
     x <- 2.state[Log]
-    _ <- write(log.severity)(Error)
-    _ <- update(log.trace.lines)(_ :+ "foo")
-    _ <- update(log.trace.lines)(_ :+ "bar")
-    _ <- update(log.aux)(_ + ("foo" -> List("bar")))
+    _ <- log.severity.set(Error)
+    _ <- log.trace.lines.update(_ :+ "foo")
+    _ <- log.trace.lines.update(_ :+ "bar")
+  } yield x
+
+  val app = for {
+    x <- app1
+    _ <- log.aux.update(_ + ("foo" -> List("bar")))
+    t <- log.trace.value
+    _ = println(t)
     y <- 3.state[Log]
-    _ <- write(log.message)("Heyo!")
+    _ <- log.message.set("Heyo!")
   } yield x + y
 
   println(app.run(Log.empty))
