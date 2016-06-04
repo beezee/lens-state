@@ -19,8 +19,10 @@ object LogState {
 
   val log = lens[Log]
 
-  def write[A](l: Lens[Log, A])(m: A => A) =
+  def update[A](l: Lens[Log, A])(m: A => A) =
     State.modify(l.modify(_: Log)(m))
+  def write[A](l: Lens[Log, A])(m: A) =
+    State.modify(l.set(_: Log)(m))
 }
 
 object Example extends App {
@@ -28,12 +30,12 @@ object Example extends App {
 
   val app = for {
     x <- 2.state[Log]
-    _ <- write(log.severity)(_ => Error)
-    _ <- write(log.trace.lines)(_ :+ "foo")
-    _ <- write(log.trace.lines)(_ :+ "bar")
-    _ <- write(log.aux)(_ + ("foo" -> List("bar")))
+    _ <- write(log.severity)(Error)
+    _ <- update(log.trace.lines)(_ :+ "foo")
+    _ <- update(log.trace.lines)(_ :+ "bar")
+    _ <- update(log.aux)(_ + ("foo" -> List("bar")))
     y <- 3.state[Log]
-    _ <- write(log.message)(_ => "Heyo!")
+    _ <- write(log.message)("Heyo!")
   } yield x + y
 
   println(app.run(Log.empty))
